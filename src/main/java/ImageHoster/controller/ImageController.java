@@ -1,8 +1,10 @@
 package ImageHoster.controller;
 
+//import ImageHoster.model.Comment;
 import ImageHoster.model.Image;
 import ImageHoster.model.Tag;
 import ImageHoster.model.User;
+//import ImageHoster.service.CommentService;
 import ImageHoster.service.ImageService;
 import ImageHoster.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,9 @@ public class ImageController {
     @Autowired
     private TagService tagService;
 
+    //@Autowired
+    //private CommentService commentService;
+
     //This method displays all the images in the user home page after successful login
     @RequestMapping("images")
     public String getUserImages(Model model) {
@@ -45,9 +50,12 @@ public class ImageController {
     //Also now you need to add the tags of an image in the Model type object
     //Here a list of tags is added in the Model type object
     //this list is then sent to 'images/image.html' file and the tags are displayed
-    @RequestMapping("/images/{title}")
-    public String showImage(@PathVariable("title") String title, Model model) {
-        Image image = imageService.getImageByTitle(title);
+    @RequestMapping("/images/{imageId}/{title}")
+    public String showImage(@PathVariable("imageId") Integer id, @PathVariable("title") String title, Model model) {
+        //Image image = imageService.getImageByTitle(title);
+        Image image = imageService.getImage(id);
+       // List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
+       // model.addAttribute("comments",commentList);
         model.addAttribute("image", image);
         model.addAttribute("tags", image.getTags());
         return "images/image";
@@ -92,13 +100,27 @@ public class ImageController {
     //The method first needs to convert the list of all the tags to a string containing all the tags separated by a comma and then add this string in a Model type object
     //This string is then displayed by 'edit.html' file as previous tags of an image
     @RequestMapping(value = "/editImage")
-    public String editImage(@RequestParam("imageId") Integer imageId, Model model) {
+    public String editImage(@RequestParam("imageId") Integer imageId, Model model, HttpSession session) {
         Image image = imageService.getImage(imageId);
 
+        // Get the current logged in user
+        User user = (User) session.getAttribute("loggeduser");
+        String editError = "Only the owner of the image can edit the image";
         String tags = convertTagsToString(image.getTags());
+        //List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
+
+        //model.addAttribute("comments",commentList);
         model.addAttribute("image", image);
-        model.addAttribute("tags", tags);
-        return "images/edit";
+
+        //check if the owner is editing the message
+        if( isUserValid(image.getUser(), session)) {
+            model.addAttribute("tags", tags);
+            return "images/edit";
+        }else{
+            // Display error message
+            model.addAttribute("editError", editError);
+            return "images/image";
+        }
     }
 
     //This controller method is called when the request pattern is of type 'images/edit' and also the incoming request is of PUT type
@@ -115,7 +137,12 @@ public class ImageController {
     @RequestMapping(value = "/editImage", method = RequestMethod.PUT)
     public String editImageSubmit(@RequestParam("file") MultipartFile file, @RequestParam("imageId") Integer imageId, @RequestParam("tags") String tags, Image updatedImage, HttpSession session) throws IOException {
 
+        //Get the image model to edit
         Image image = imageService.getImage(imageId);
+        // Get the current logged in user
+        User user = (User) session.getAttribute("loggeduser");
+
+
         String updatedImageData = convertUploadedFileToBase64(file);
         List<Tag> imageTags = findOrCreateTags(tags);
 
@@ -126,13 +153,12 @@ public class ImageController {
         }
 
         updatedImage.setId(imageId);
-        User user = (User) session.getAttribute("loggeduser");
         updatedImage.setUser(user);
         updatedImage.setTags(imageTags);
         updatedImage.setDate(new Date());
-
         imageService.updateImage(updatedImage);
-        return "redirect:/images/" + updatedImage.getTitle();
+        return "redirect:/images/" + updatedImage.getId() + "/" + updatedImage.getTitle();
+
     }
 
 
@@ -140,11 +166,31 @@ public class ImageController {
     //The method calls the deleteImage() method in the business logic passing the id of the image to be deleted
     //Looks for a controller method with request mapping of type '/images'
     @RequestMapping(value = "/deleteImage", method = RequestMethod.DELETE)
-    public String deleteImageSubmit(@RequestParam(name = "imageId") Integer imageId) {
-        imageService.deleteImage(imageId);
-        return "redirect:/images";
-    }
+    public String deleteImageSubmit(@RequestParam(name = "imageId") Integer imageId, HttpSession session, Model model) {
 
+        String deleteError = "Only the owner of the image can delete the image";
+        // fetch the image to get the owner of the image
+        Image image = imageService.getImage(imageId);
+        //List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
+        //String tags = convertTagsToString(image.getTags());
+
+        //model.addAttribute("comments",commentList);
+        model.addAttribute("image", image);
+        //model.addAttribute("tags", tags);
+
+
+
+        //check if the owner is deleting the message
+        if( isUserValid(image.getUser(),session)){
+            // Delete the message
+            imageService.deleteImage(imageId);
+            return "redirect:/images";
+        }else{
+            // Display error message
+            model.addAttribute("deleteError", deleteError);
+            return "images/image";
+        }
+    }
 
     //This method converts the image to Base64 format
     private String convertUploadedFileToBase64(MultipartFile file) throws IOException {
@@ -186,5 +232,16 @@ public class ImageController {
         tagString.append(lastTag.getName());
 
         return tagString.toString();
+    }
+
+    private Boolean isUserValid(User user, HttpSession session) {
+
+        User sessionUser = (User) session.getAttribute("loggeduser");
+
+        if (user.getId() == sessionUser.getId()) {
+            return true;
+        } else
+            return false;
+
     }
 }
