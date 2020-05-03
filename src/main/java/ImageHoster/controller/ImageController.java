@@ -1,10 +1,10 @@
-package ImageHoster.controller;
+ package ImageHoster.controller;
 
-//import ImageHoster.model.Comment;
+import ImageHoster.model.Comment;
 import ImageHoster.model.Image;
 import ImageHoster.model.Tag;
 import ImageHoster.model.User;
-//import ImageHoster.service.CommentService;
+import ImageHoster.service.CommentService;
 import ImageHoster.service.ImageService;
 import ImageHoster.service.TagService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,8 +29,8 @@ public class ImageController {
     @Autowired
     private TagService tagService;
 
-    //@Autowired
-    //private CommentService commentService;
+    @Autowired
+    private CommentService commentService;
 
     //This method displays all the images in the user home page after successful login
     @RequestMapping("images")
@@ -54,8 +54,8 @@ public class ImageController {
     public String showImage(@PathVariable("imageId") Integer id, @PathVariable("title") String title, Model model) {
         //Image image = imageService.getImageByTitle(title);
         Image image = imageService.getImage(id);
-       // List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
-       // model.addAttribute("comments",commentList);
+        List<Comment> commentList = commentService.getComments(image.getId(), image.getTitle());
+        model.addAttribute("comments",commentList);
         model.addAttribute("image", image);
         model.addAttribute("tags", image.getTags());
         return "images/image";
@@ -103,13 +103,11 @@ public class ImageController {
     public String editImage(@RequestParam("imageId") Integer imageId, Model model, HttpSession session) {
         Image image = imageService.getImage(imageId);
 
-        // Get the current logged in user
-        User user = (User) session.getAttribute("loggeduser");
         String editError = "Only the owner of the image can edit the image";
         String tags = convertTagsToString(image.getTags());
-        //List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
+        List<Comment> commentList = commentService.getComments(image.getId(), image.getTitle());
 
-        //model.addAttribute("comments",commentList);
+        model.addAttribute("comments",commentList);
         model.addAttribute("image", image);
 
         //check if the owner is editing the message
@@ -119,6 +117,7 @@ public class ImageController {
         }else{
             // Display error message
             model.addAttribute("editError", editError);
+            model.addAttribute("tags", tags);
             return "images/image";
         }
     }
@@ -134,7 +133,7 @@ public class ImageController {
 
     //The method also receives tags parameter which is a string of all the tags separated by a comma using the annotation @RequestParam
     //The method converts the string to a list of all the tags using findOrCreateTags() method and sets the tags attribute of an image as a list of all the tags
-    @RequestMapping(value = "/editImage", method = RequestMethod.PUT)
+    @RequestMapping(value = "/editImage", method = {RequestMethod.PUT, RequestMethod.POST})
     public String editImageSubmit(@RequestParam("file") MultipartFile file, @RequestParam("imageId") Integer imageId, @RequestParam("tags") String tags, Image updatedImage, HttpSession session) throws IOException {
 
         //Get the image model to edit
@@ -165,18 +164,18 @@ public class ImageController {
     //This controller method is called when the request pattern is of type 'deleteImage' and also the incoming request is of DELETE type
     //The method calls the deleteImage() method in the business logic passing the id of the image to be deleted
     //Looks for a controller method with request mapping of type '/images'
-    @RequestMapping(value = "/deleteImage", method = RequestMethod.DELETE)
+    @RequestMapping(value = "/deleteImage", method = {RequestMethod.DELETE, RequestMethod.POST })
     public String deleteImageSubmit(@RequestParam(name = "imageId") Integer imageId, HttpSession session, Model model) {
 
         String deleteError = "Only the owner of the image can delete the image";
         // fetch the image to get the owner of the image
         Image image = imageService.getImage(imageId);
-        //List<Comment> commentList = commentService.getComment(image.getTitle(), image.getId());
-        //String tags = convertTagsToString(image.getTags());
+        List<Comment> commentList = commentService.getComments(image.getId(), image.getTitle());
+        String tags = convertTagsToString(image.getTags());
 
-        //model.addAttribute("comments",commentList);
+        model.addAttribute("comments",commentList);
         model.addAttribute("image", image);
-        //model.addAttribute("tags", tags);
+        model.addAttribute("tags", tags);
 
 
 

@@ -45,13 +45,12 @@ public class UserController {
 
         if(isPasswordValid(user.getPassword())){
             userService.registerUser(user);
-            return "redirect:/users/login";
+            return "users/login";
         }else{
             model.addAttribute("User", user);
             model.addAttribute("passwordTypeError", passwordError);
             return"users/registration";
         }
-
     }
 
     //This controller method is called when the request pattern is of type 'users/login'
